@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}<h1>Refund record #{{ r.id }}</h1>
+<table>
+<tr><th>Customer</th><td id="f-customer">{{ r.customer }}</td></tr>
+<tr><th>Refund number</th><td id="f-refund_number">{{ r.refund_number }}</td></tr>
+<tr><th>Amount</th><td id="f-amount">{{ '%.2f'|format(r.amount) }}</td></tr>
+<tr><th>Respond-by date</th><td id="f-respond_by">{{ r.respond_by }}</td></tr></table>{% endblock %}

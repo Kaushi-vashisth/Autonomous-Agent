@@ -1,0 +1,62 @@
+# Each case runs against a freshly reset sandbox. `answers` are fed to interrupts in order.
+- id: ambiguity
+  goal: "Find the latest refund from Northwind, extract the amount and respond-by date, log it in the helpdesk, and tell me when it's done."
+  answers: ["Northwind Traders"]
+  expect:
+    status: completed
+    interrupt_kinds: [clarification]
+    new_refunds: 1
+    customer: Northwind Traders
+    amount: "348.00"
+    respond_by: "2026-03-29"
+
+- id: recovery
+  goal: "Find the latest refund from Northwind Traders, extract the amount and respond-by date, and log it in the helpdesk."
+  answers: []
+  expect:
+    status: completed
+    interrupt_kinds: []
+    new_refunds: 1
+    min_failed_submits: 1        # the first submit is rejected (date format / one-time 500)
+    amount: "348.00"
+
+- id: approval
+  goal: "Find the latest refund from Northwind Logistics, extract the amount and respond-by date, and log it in the helpdesk."
+  answers: ["yes"]
+  expect:
+    status: completed
+    interrupt_kinds: [approval]
+    new_refunds: 1
+    amount: "782.50"
+
+- id: verification
+  # latest Contoso refund exists only as an email (RF-5602), so this also exercises the email source
+  goal: "Enter the latest refund from Contoso Ltd in the helpdesk."
+  answers: []
+  expect:
+    status: completed
+    all_checks_pass: true
+    new_refunds: 1
+    customer: Contoso Ltd
+    amount: "112.50"
+    respond_by: "2026-04-19"
+
+- id: tie_refunds
+  # two Fabrikam refunds share the latest date -> code forces a human choice
+  goal: "Find the latest refund from Fabrikam and log it in the helpdesk."
+  answers: ["RF-0089"]
+  expect:
+    status: completed
+    interrupt_kinds: [clarification]
+    new_refunds: 1
+    customer: Fabrikam Inc
+    amount: "51.75"
+    respond_by: "2026-02-11"
+
+- id: generalization
+  goal: "Mark the latest ticket from Contoso as resolved."
+  answers: []
+  expect:
+    status: completed
+    tickets_resolved: 1
+    resolved_tickets: [TCK-7003]

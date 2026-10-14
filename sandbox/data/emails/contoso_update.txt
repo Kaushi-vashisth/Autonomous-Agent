@@ -1,0 +1,4 @@
+From: ops@contoso.example
+Subject: Ticket update
+
+Our most recent ticket has been worked on and should be ready to close this week.

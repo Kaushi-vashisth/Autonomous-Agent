@@ -1,0 +1,4 @@
+From: help@northwind.example
+Subject: Reminder - February refund
+
+Hi, just a reminder that our latest refund request is in the usual folder. Thanks, Northwind support

@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block body %}<h1>Refunds</h1>
+<table><tr><th>ID</th><th>Customer</th><th>Refund</th><th>Amount</th><th>Respond by</th></tr>
+{% for r in rows %}<tr><td><a href="/refunds/{{ r.id }}">{{ r.id }}</a></td><td>{{ r.customer }}</td><td>{{ r.refund_number }}</td><td>{{ '%.2f'|format(r.amount) }}</td><td>{{ r.respond_by }}</td></tr>{% else %}<tr><td colspan="5">No refunds yet.</td></tr>{% endfor %}</table>{% endblock %}

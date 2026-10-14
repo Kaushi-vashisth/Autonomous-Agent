@@ -1,0 +1,3 @@
+{% extends "base.html" %}{% block body %}<h1>Tickets</h1>
+<table><tr><th>Ticket</th><th>Customer</th><th>Opened Date</th><th>Status</th></tr>
+{% for r in rows %}<tr><td><a href="/tickets/{{ r.id }}">{{ r.ticket_number }}</a></td><td>{{ r.customer }}</td><td>{{ r.opened_date }}</td><td>{{ r.status }}</td></tr>{% endfor %}</table>{% endblock %}

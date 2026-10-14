@@ -1,0 +1,53 @@
+{
+  "run_id": "20261014-110408-e956",
+  "goal": "Mark the latest ticket from Contoso as resolved.",
+  "status": "completed",
+  "facts": {
+    "customer": "Contoso Ltd",
+    "source_file": "sandbox/data/tickets/contoso-ltd_TCK-7003.pdf",
+    "ticket_date": "2026-03-12",
+    "ticket_number": "TCK-7003",
+    "status": "resolved",
+    "record_type": "ticket_resolve",
+    "record_id": "3",
+    "record_url": "http://127.0.0.1:5001/tickets/3"
+  },
+  "checks": {
+    "record_check": {
+      "passed": true,
+      "detail": "ticket shows resolved ({'customer': 'Contoso Ltd', 'ticket_number': 'TCK-7003', 'status': 'resolved'}). Evidence: D:\\autonomus agent\\runs\\20261014-110408-e956\\verify_record.png"
+    },
+    "source_check": {
+      "passed": true,
+      "detail": "Extracted values appear literally in sandbox/data/tickets/contoso-ltd_TCK-7003.pdf"
+    },
+    "side_effect_check": {
+      "passed": true,
+      "detail": "Exactly one new record; approval ordering OK"
+    }
+  },
+  "replans": 0,
+  "approvals": [],
+  "human_answers": [],
+  "interrupts": [],
+  "submissions": [
+    {
+      "record_type": "ticket_resolve",
+      "customer": "Contoso Ltd",
+      "amount": "",
+      "respond_by": "",
+      "refund_number": "",
+      "ticket_number": "TCK-7003",
+      "ok": true,
+      "url": "http://127.0.0.1:5001/tickets/3",
+      "screenshot": "D:\\autonomus agent\\runs\\20261014-110408-e956\\submit_1.png",
+      "error": null
+    }
+  ],
+  "screenshots": [
+    "D:\\autonomus agent\\runs\\20261014-110408-e956\\submit_1.png",
+    "D:\\autonomus agent\\runs\\20261014-110408-e956\\ticket_resolved.png",
+    "D:\\autonomus agent\\runs\\20261014-110408-e956\\verify_record.png"
+  ],
+  "audit_log": "D:\\autonomus agent\\runs\\20261014-110408-e956\\audit.jsonl"
+}

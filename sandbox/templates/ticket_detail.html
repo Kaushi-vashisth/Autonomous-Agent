@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block body %}<h1>Ticket {{ r.ticket_number }}</h1>
+<table>
+<tr><th>Ticket number</th><td id="f-ticket_number">{{ r.ticket_number }}</td></tr>
+<tr><th>Customer</th><td id="f-customer">{{ r.customer }}</td></tr>
+<tr><th>Opened date</th><td id="f-opened_date">{{ r.opened_date }}</td></tr>
+<tr><th>Status</th><td id="f-status">{{ r.status }}</td></tr></table>
+{% if r.status == 'open' %}<form method="post" action="/tickets/{{ r.id }}/resolve"><button type="submit" data-role="submit-record">Mark as resolved</button></form>{% endif %}{% endblock %}

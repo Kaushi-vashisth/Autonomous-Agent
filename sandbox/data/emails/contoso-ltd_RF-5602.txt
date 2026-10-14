@@ -1,0 +1,14 @@
+From: help@contoso-ltd.example
+To: support@brightline.example
+Subject: Refund request RF-5602 from Contoso Ltd
+
+Hello, please find our refund request details below.
+
+Customer: Contoso Ltd
+Refund No: RF-5602
+Refund Date: 20 Mar 2026
+Respond-by Date: 19 Apr 2026
+Reason: Faulty gadget returned
+Refund Amount: USD 112.50
+
+Thanks

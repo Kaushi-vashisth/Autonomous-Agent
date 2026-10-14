@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block body %}<h1>New refund</h1>
+<form method="post" action="/refunds/new">
+<label for="customer">Customer</label>
+<select id="customer" name="customer">{% for v in customers %}<option value="{{ v }}" {{ 'selected' if v == form.get('customer') }}>{{ v }}</option>{% endfor %}</select>
+<label for="refund_number">Refund number</label><input id="refund_number" name="refund_number" value="{{ form.get('refund_number','') }}">
+<label for="amount">Amount (USD)</label><input id="amount" name="amount" value="{{ form.get('amount','') }}">
+<label for="respond_by">Respond-by date ({{ 'MM/DD/YYYY' if faults else 'YYYY-MM-DD' }})</label><input id="respond_by" name="respond_by" value="{{ form.get('respond_by','') }}">
+<button type="submit" data-role="submit-record">Log refund</button></form>{% endblock %}

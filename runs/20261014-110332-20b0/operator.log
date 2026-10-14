@@ -1,0 +1,508 @@
+11:03:34 INFO    operator.graph  | === NODE load_context | goal: Mark the latest ticket from Contoso as resolved.
+11:03:36 INFO    operator.llm    | [select_context #1] -> request: 2 messages | last=human: Task: Mark the latest ticket from Contoso as resolved. //  // Index: // - company.md: Company overview, systems and URLs, naming conventions // - customers.md: Customer list with aliases (some aliases, like "Northwind", are shared by two customers) // - policies.md: Approval thresholds and what the ...[+247 chars]
+11:03:36 DEBUG   operator.llm    | [select_context #1]    SYSTEM: You select which company context documents are needed to complete a task.
+Return only file names that appear in the index. If the message is a greeting or not an actionable task,
+return an empty list. You must respond by calling the ContextSelection tool.
+11:03:36 DEBUG   operator.llm    | [select_context #1]    HUMAN: Task: Mark the latest ticket from Contoso as resolved.
+
+Index:
+- company.md: Company overview, systems and URLs, naming conventions
+- customers.md: Customer list with aliases (some aliases, like "Northwind", are shared by two customers)
+- policies.md: Approval thresholds and what the AI may and may not do
+- procedures/refund_entry.md: Step-by-step procedure for logging a customer refund request in the helpdesk
+- procedures/ticket_resolution.md: Procedure for marking a customer's support ticket as resolved in the helpdesk
+11:03:37 INFO    operator.llm    | [select_context #1] <- TOOL CALL ContextSelection({'docs': ['procedures/ticket_resolution.md'], 'reason': "Need the step-by-step procedure for marking a customer's support ticket as resolved."}) | 1.0s in=321 out=112
+11:03:37 DEBUG   operator.llm    | [select_context #1]    full response:  | tool_calls=[{'name': 'ContextSelection', 'args': {'docs': ['procedures/ticket_resolution.md'], 'reason': "Need the step-by-step procedure for marking a customer's support ticket as resolved."}, 'id': 'fc_ace32d54-b45d-4b1a-b742-031851ae7497', 'type': 'tool_call'}]
+11:03:37 INFO    operator.llm    | [select_context] structured result OK (ContextSelection)
+11:03:37 INFO    operator.planner| context docs selected: ['procedures/ticket_resolution.md'] | reason: Need the step-by-step procedure for marking a customer's support ticket as resolved.
+11:03:37 DEBUG   operator.graph  | loaded context docs (2972 chars)
+11:03:37 INFO    operator.graph  | === NODE plan
+11:03:37 INFO    operator.llm    | [plan #2] -> request: 2 messages | last=human: Goal: Mark the latest ticket from Contoso as resolved. //  // Known facts: {}
+11:03:37 DEBUG   operator.llm    | [plan #2]    SYSTEM: You are the Planner of an AI operator that completes company tasks with real tools.
+Turn the goal into an ordered list of small steps. Rules:
+- You must respond by calling the Plan tool. Never answer in plain text.
+- Follow the relevant procedure document in the context. Do not invent systems or URLs.
+- Each step must be doable in at most 8 tool calls by an executor that sees only that step. The browser is
+  already authenticated. NEVER plan a login step. Never repeat navigation that an earlier step already did.
+- The executor does NOT see the procedure document. Make every step description SELF-CONTAINED: name the exact
+  tools, arguments and URLs to use and any procedure rule that matters (e.g. "use submit_record, never click submit").
+- Prefer few, meaningful steps (typically 3-4), each 2-8 tool calls, e.g. one step "identify the document"
+  (lookup_customer + find_latest_document + read_file) instead of one step per tool call.
+- Do NOT include a final verification step; the system verifies deterministically afterwards.
+- Never include a step that asks a human unless information is truly missing; ambiguity is handled by tools.
+- If the goal is a greeting, unclear, or not something these tools can do: return steps=[] and put ONE
+  clarifying question in open_questions.
+- Mark needs_approval=true for steps that submit something above policy thresholds.
+- submit_record already saves a screenshot automatically; do not make a separate screenshot a success criterion.
+- When re-planning, plan only the REMAINING work, using the known facts, and avoid repeating the failed approach.
+  A one-time helpdesk HTTP 500 is retryable with identical values; it is not a data problem.
+Available tools:
+- list_files: List files in a folder (relative to the project root, e.g. 'sandbox/data/refunds').
+- read_file: Read a text file or extract the text of a PDF (path relative to the project root).
+- goto: Open a URL in the browser (allow-listed sandbox URLs only). Returns the page snapshot.
+- snapshot: Compact text list of visible interactive elements with short ids (e1, e2...).
+- click: Click an element by id from the latest snapshot. Returns the new page snapshot.
+- fill: Type a value into an input or choose an option in a select (element id from snapshot).
+- fill_form: Fill several fields at once. `values` maps element id -> value, e.g. {"e1": "Northwind Traders", "e2": "RF-1"}.
+- read_page_text: Read the visible text of the current page (tables, flash messages, errors).
+- screenshot: Save a screenshot of the current page as evidence (saved under runs/<id>/).
+- lookup_customer: Resolve a customer name or alias against the customer list. Reports AMBIGUOUS when several customers match.
+- find_latest_document: Find the latest source document for a customer. kind: 'refund' (searches refund PDFs and emails) or 'ticket'.
+- submit_record: Submit the record on the current page through the policy gate.
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+
+=== procedures/ticket_resolution.md ===
+---
+description: Procedure for marking a customer's support ticket as resolved in the helpdesk
+---
+# Procedure: resolve a support ticket
+1. Confirm the customer with `lookup_customer` (ask the human if AMBIGUOUS).
+2. Call `find_latest_document(kind="ticket", customer=<canonical name>)` to get the latest ticket number and its source_file.
+3. `read_file` the source_file to confirm the ticket number.
+4. Open `/tickets`, find that ticket and open its detail page (it must be open, not already resolved).
+5. Call `submit_record` with record_type="ticket_resolve", customer and ticket_number (this presses "Mark as resolved").
+6. Take a screenshot of the result.
+11:03:37 DEBUG   operator.llm    | [plan #2]    HUMAN: Goal: Mark the latest ticket from Contoso as resolved.
+
+Known facts: {}
+11:03:39 INFO    operator.llm    | [plan #2] <- TOOL CALL Plan({'assumptions': ['The customer name "Contoso" resolves unambiguously.', 'There is a single latest ticket for Contoso (no tie on dates).'], 'objective': 'Mark the latest ticket from Contoso as resolved.', 'open_questions': [], 'steps': [{'description': "Confirm Contoso's canonical name, locate the la...[+683 chars]) | 1.8s in=1589 out=502
+11:03:39 DEBUG   operator.llm    | [plan #2]    full response:  | tool_calls=[{'name': 'Plan', 'args': {'assumptions': ['The customer name "Contoso" resolves unambiguously.', 'There is a single latest ticket for Contoso (no tie on dates).'], 'objective': 'Mark the latest ticket from Contoso as resolved.', 'open_questions': [], 'steps': [{'description': "Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.", 'id': 1, 'needs_approval': False, 'success_criteria': 'Obtained a canonical customer name and the ticket number from the latest ticket source file.', 'tool_hint': 'lookup_customer, find_latest_document, read_file'}, {'description': 'Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result.', 'id': 2, 'needs_approval': False, 'success_criteria': 'Ticket is marked as resolved in the system and a screenshot of the confirmation page is saved.', 'tool_hint': 'goto, snapshot, click, submit_record, screenshot'}]}, 'id': 'fc_4b8c78b9-f784-4933-8d33-43155b2c9d3e', 'type': 'tool_call'}]
+11:03:39 INFO    operator.llm    | [plan] structured result OK (Plan)
+11:03:39 INFO    operator.graph  | PLAN objective: Mark the latest ticket from Contoso as resolved.
+11:03:39 INFO    operator.graph  |   step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number. | tools: lookup_customer, find_latest_document, read_file | success: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+11:03:39 INFO    operator.graph  |   step 2: Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result. | tools: goto, snapshot, click, submit_record, screenshot | success: Ticket is marked as resolved in the system and a screenshot of the confirmation page is saved.
+11:03:39 INFO    operator.graph  |   assumptions: ['The customer name "Contoso" resolves unambiguously.', 'There is a single latest ticket for Contoso (no tie on dates).']
+11:03:39 INFO    operator.graph  | === NODE act | step 1/2
+11:03:40 INFO    operator.actor  | [step 1] START: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number. | success: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+11:03:40 DEBUG   operator.actor  | [step 1] task message:
+Objective: Mark the latest ticket from Contoso as resolved.
+Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.
+Tool hint: lookup_customer, find_latest_document, read_file
+Success criteria: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+Known facts: {}
+11:03:40 INFO    operator.llm    | [actor.step1 #3] -> request: 2 messages | last=human: Objective: Mark the latest ticket from Contoso as resolved. // Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number. // Tool hint: lookup_customer, find_latest_document, read_file // Success criteria: Obtained a canonical customer name ...[+76 chars]
+11:03:40 DEBUG   operator.llm    | [actor.step1 #3]    SYSTEM: You are the Actor of an AI operator. You execute exactly ONE step of a plan using tools.
+Rules:
+- You act ONLY through tool calls. Never reply in plain text: every turn must be a tool call.
+- Use at most 8 tool calls. Be economical: goto/click already return a page snapshot.
+- Element ids (e1, e2...) come from the latest snapshot and change after every page load.
+- Do not log in; the session is already authenticated.
+- Never guess values: read them from files or pages. Amounts are plain numbers (e.g. 348.00).
+- Never click a gated submit button; use submit_record. If a tool says BLOCKED or AMBIGUOUS, stop and
+  report status=needs_human with a clear question.
+- If a tool result is an error, adapt (re-read the page, fix the value) rather than repeating the same call.
+- Do ONLY this step. As soon as its success criteria are met, call StepResult immediately; do not start the
+  next step even if you know what it is. Other steps run later with their own budget.
+- If the helpdesk shows a validation error, read the message, correct the field and resubmit; on a server error
+  retry once.
+- FINISH by calling the StepResult tool BY ITSELF, in its own turn, after you have seen the results of your
+  other tool calls. status=done only if the success criteria are met; failed if not (explain in note);
+  needs_human if a human decision is required (set question). Put values discovered in this step in facts as
+  plain strings (customer, refund_number, amount, respond_by, refund_date, source_file, ticket_number as relevant).
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+11:03:40 DEBUG   operator.llm    | [actor.step1 #3]    HUMAN: Objective: Mark the latest ticket from Contoso as resolved.
+Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.
+Tool hint: lookup_customer, find_latest_document, read_file
+Success criteria: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+Known facts: {}
+11:03:41 INFO    operator.llm    | [actor.step1 #3] <- TOOL CALL lookup_customer({'name': 'Contoso'}) | 1.0s in=1759 out=154
+11:03:41 DEBUG   operator.llm    | [actor.step1 #3]    full response:  | tool_calls=[{'name': 'lookup_customer', 'args': {'name': 'Contoso'}, 'id': 'fc_ac363ab2-fa71-4867-8c95-f6b42cb628ec', 'type': 'tool_call'}]
+11:03:41 INFO    operator.actor  | [step 1] tool #1 -> lookup_customer({"name": "Contoso"})
+11:03:41 INFO    operator.actor  | [step 1] tool result <- lookup_customer: MATCH: Contoso Ltd
+11:03:41 DEBUG   operator.actor  | [step 1] tool result FULL <- lookup_customer:
+MATCH: Contoso Ltd
+11:03:41 INFO    operator.llm    | [actor.step1 #4] -> request: 4 messages | last=tool: MATCH: Contoso Ltd
+11:03:41 DEBUG   operator.llm    | [actor.step1 #4]    SYSTEM: You are the Actor of an AI operator. You execute exactly ONE step of a plan using tools.
+Rules:
+- You act ONLY through tool calls. Never reply in plain text: every turn must be a tool call.
+- Use at most 8 tool calls. Be economical: goto/click already return a page snapshot.
+- Element ids (e1, e2...) come from the latest snapshot and change after every page load.
+- Do not log in; the session is already authenticated.
+- Never guess values: read them from files or pages. Amounts are plain numbers (e.g. 348.00).
+- Never click a gated submit button; use submit_record. If a tool says BLOCKED or AMBIGUOUS, stop and
+  report status=needs_human with a clear question.
+- If a tool result is an error, adapt (re-read the page, fix the value) rather than repeating the same call.
+- Do ONLY this step. As soon as its success criteria are met, call StepResult immediately; do not start the
+  next step even if you know what it is. Other steps run later with their own budget.
+- If the helpdesk shows a validation error, read the message, correct the field and resubmit; on a server error
+  retry once.
+- FINISH by calling the StepResult tool BY ITSELF, in its own turn, after you have seen the results of your
+  other tool calls. status=done only if the success criteria are met; failed if not (explain in note);
+  needs_human if a human decision is required (set question). Put values discovered in this step in facts as
+  plain strings (customer, refund_number, amount, respond_by, refund_date, source_file, ticket_number as relevant).
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+11:03:41 DEBUG   operator.llm    | [actor.step1 #4]    HUMAN: Objective: Mark the latest ticket from Contoso as resolved.
+Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.
+Tool hint: lookup_customer, find_latest_document, read_file
+Success criteria: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+Known facts: {}
+11:03:41 DEBUG   operator.llm    | [actor.step1 #4]    AI: 
+11:03:41 DEBUG   operator.llm    | [actor.step1 #4]       tool_call: lookup_customer({'name': 'Contoso'})
+11:03:41 DEBUG   operator.llm    | [actor.step1 #4]    TOOL: MATCH: Contoso Ltd
+11:03:42 INFO    operator.llm    | [actor.step1 #4] <- TOOL CALL find_latest_document({'customer': 'Contoso Ltd', 'kind': 'ticket'}) | 0.8s in=1791 out=61
+11:03:42 DEBUG   operator.llm    | [actor.step1 #4]    full response:  | tool_calls=[{'name': 'find_latest_document', 'args': {'customer': 'Contoso Ltd', 'kind': 'ticket'}, 'id': 'fc_8fa2168e-2632-46b5-b05f-66788dd08eba', 'type': 'tool_call'}]
+11:03:42 INFO    operator.actor  | [step 1] tool #2 -> find_latest_document({"customer": "Contoso Ltd", "kind": "ticket"})
+11:03:42 INFO    operator.actor  | [step 1] tool result <- find_latest_document: LATEST ticket for Contoso Ltd: number=TCK-7003 date=2026-03-12 source_file=sandbox/data/tickets/contoso-ltd_TCK-7003.pdf
+11:03:42 DEBUG   operator.actor  | [step 1] tool result FULL <- find_latest_document:
+LATEST ticket for Contoso Ltd: number=TCK-7003 date=2026-03-12 source_file=sandbox/data/tickets/contoso-ltd_TCK-7003.pdf
+11:03:42 INFO    operator.llm    | [actor.step1 #5] -> request: 6 messages | last=tool: LATEST ticket for Contoso Ltd: number=TCK-7003 date=2026-03-12 source_file=sandbox/data/tickets/contoso-ltd_TCK-7003.pdf
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    SYSTEM: You are the Actor of an AI operator. You execute exactly ONE step of a plan using tools.
+Rules:
+- You act ONLY through tool calls. Never reply in plain text: every turn must be a tool call.
+- Use at most 8 tool calls. Be economical: goto/click already return a page snapshot.
+- Element ids (e1, e2...) come from the latest snapshot and change after every page load.
+- Do not log in; the session is already authenticated.
+- Never guess values: read them from files or pages. Amounts are plain numbers (e.g. 348.00).
+- Never click a gated submit button; use submit_record. If a tool says BLOCKED or AMBIGUOUS, stop and
+  report status=needs_human with a clear question.
+- If a tool result is an error, adapt (re-read the page, fix the value) rather than repeating the same call.
+- Do ONLY this step. As soon as its success criteria are met, call StepResult immediately; do not start the
+  next step even if you know what it is. Other steps run later with their own budget.
+- If the helpdesk shows a validation error, read the message, correct the field and resubmit; on a server error
+  retry once.
+- FINISH by calling the StepResult tool BY ITSELF, in its own turn, after you have seen the results of your
+  other tool calls. status=done only if the success criteria are met; failed if not (explain in note);
+  needs_human if a human decision is required (set question). Put values discovered in this step in facts as
+  plain strings (customer, refund_number, amount, respond_by, refund_date, source_file, ticket_number as relevant).
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    HUMAN: Objective: Mark the latest ticket from Contoso as resolved.
+Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.
+Tool hint: lookup_customer, find_latest_document, read_file
+Success criteria: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+Known facts: {}
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    AI: 
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]       tool_call: lookup_customer({'name': 'Contoso'})
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    TOOL: MATCH: Contoso Ltd
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    AI: 
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]       tool_call: find_latest_document({'customer': 'Contoso Ltd', 'kind': 'ticket'})
+11:03:42 DEBUG   operator.llm    | [actor.step1 #5]    TOOL: LATEST ticket for Contoso Ltd: number=TCK-7003 date=2026-03-12 source_file=sandbox/data/tickets/contoso-ltd_TCK-7003.pdf
+11:03:43 INFO    operator.llm    | [actor.step1 #5] <- TOOL CALL read_file({'path': 'sandbox/data/tickets/contoso-ltd_TCK-7003.pdf'}) | 0.8s in=1865 out=80
+11:03:43 DEBUG   operator.llm    | [actor.step1 #5]    full response:  | tool_calls=[{'name': 'read_file', 'args': {'path': 'sandbox/data/tickets/contoso-ltd_TCK-7003.pdf'}, 'id': 'fc_1b0de204-a862-4f5f-a96a-691fe7c472ed', 'type': 'tool_call'}]
+11:03:43 INFO    operator.actor  | [step 1] tool #3 -> read_file({"path": "sandbox/data/tickets/contoso-ltd_TCK-7003.pdf"})
+11:03:43 INFO    operator.actor  | [step 1] tool result <- read_file: SUPPORT TICKET // Customer: Contoso Ltd // Ticket No: TCK-7003 // Opened Date: 12 Mar 2026 // Issue: Gadget firmware update fails // Assigned to: Brightline Support // 
+11:03:43 DEBUG   operator.actor  | [step 1] tool result FULL <- read_file:
+SUPPORT TICKET
+Customer: Contoso Ltd
+Ticket No: TCK-7003
+Opened Date: 12 Mar 2026
+Issue: Gadget firmware update fails
+Assigned to: Brightline Support
+
+11:03:43 INFO    operator.llm    | [actor.step1 #6] -> request: 8 messages | last=tool: SUPPORT TICKET // Customer: Contoso Ltd // Ticket No: TCK-7003 // Opened Date: 12 Mar 2026 // Issue: Gadget firmware update fails // Assigned to: Brightline Support // 
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    SYSTEM: You are the Actor of an AI operator. You execute exactly ONE step of a plan using tools.
+Rules:
+- You act ONLY through tool calls. Never reply in plain text: every turn must be a tool call.
+- Use at most 8 tool calls. Be economical: goto/click already return a page snapshot.
+- Element ids (e1, e2...) come from the latest snapshot and change after every page load.
+- Do not log in; the session is already authenticated.
+- Never guess values: read them from files or pages. Amounts are plain numbers (e.g. 348.00).
+- Never click a gated submit button; use submit_record. If a tool says BLOCKED or AMBIGUOUS, stop and
+  report status=needs_human with a clear question.
+- If a tool result is an error, adapt (re-read the page, fix the value) rather than repeating the same call.
+- Do ONLY this step. As soon as its success criteria are met, call StepResult immediately; do not start the
+  next step even if you know what it is. Other steps run later with their own budget.
+- If the helpdesk shows a validation error, read the message, correct the field and resubmit; on a server error
+  retry once.
+- FINISH by calling the StepResult tool BY ITSELF, in its own turn, after you have seen the results of your
+  other tool calls. status=done only if the success criteria are met; failed if not (explain in note);
+  needs_human if a human decision is required (set question). Put values discovered in this step in facts as
+  plain strings (customer, refund_number, amount, respond_by, refund_date, source_file, ticket_number as relevant).
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    HUMAN: Objective: Mark the latest ticket from Contoso as resolved.
+Step 1: Confirm Contoso's canonical name, locate the latest ticket document, and read it to obtain the ticket number.
+Tool hint: lookup_customer, find_latest_document, read_file
+Success criteria: Obtained a canonical customer name and the ticket number from the latest ticket source file.
+Known facts: {}
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    AI: 
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]       tool_call: lookup_customer({'name': 'Contoso'})
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    TOOL: MATCH: Contoso Ltd
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    AI: 
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]       tool_call: find_latest_document({'customer': 'Contoso Ltd', 'kind': 'ticket'})
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    TOOL: LATEST ticket for Contoso Ltd: number=TCK-7003 date=2026-03-12 source_file=sandbox/data/tickets/contoso-ltd_TCK-7003.pdf
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    AI: 
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]       tool_call: read_file({'path': 'sandbox/data/tickets/contoso-ltd_TCK-7003.pdf'})
+11:03:43 DEBUG   operator.llm    | [actor.step1 #6]    TOOL: SUPPORT TICKET
+Customer: Contoso Ltd
+Ticket No: TCK-7003
+Opened Date: 12 Mar 2026
+Issue: Gadget firmware update fails
+Assigned to: Brightline Support
+
+11:03:55 INFO    operator.llm    | [actor.step1 #6] <- TOOL CALL StepResult({'facts': {'customer': 'Contoso Ltd', 'ticket_number': 'TCK-7003'}, 'note': 'Found latest ticket for Contoso Ltd with number TCK-7003 from source file sandbox/data/tickets/contoso-ltd_TCK-7003.pdf.', 'status': 'done'}) | 12.2s in=1949 out=135
+11:03:55 DEBUG   operator.llm    | [actor.step1 #6]    full response:  | tool_calls=[{'name': 'StepResult', 'args': {'facts': {'customer': 'Contoso Ltd', 'ticket_number': 'TCK-7003'}, 'note': 'Found latest ticket for Contoso Ltd with number TCK-7003 from source file sandbox/data/tickets/contoso-ltd_TCK-7003.pdf.', 'status': 'done'}, 'id': 'fc_95e61177-a89e-4a52-b8c7-9ae04c0a7399', 'type': 'tool_call'}]
+11:03:55 INFO    operator.actor  | [step 1] RESULT status=done note='Found latest ticket for Contoso Ltd with number TCK-7003 from source file sandbox/data/tickets/contoso-ltd_TCK-7003.pdf.' question=None facts={'customer': 'Contoso Ltd', 'ticket_number': 'TCK-7003'} | tool_calls=3 model_turns=4
+11:03:55 INFO    operator.graph  | step 1 finished: DONE Found latest ticket for Contoso Ltd with number TCK-7003 from source file sandbox/data/tickets/contoso-ltd_TCK-7003.pdf.
+11:03:55 INFO    operator.graph  | === NODE observe | status=done -> route=act | facts={'customer': 'Contoso Ltd', 'ticket_number': 'TCK-7003', 'source_file': 'sandbox/data/tickets/contoso-ltd_TCK-7003.pdf'}
+11:03:55 INFO    operator.graph  | === NODE act | step 2/2
+11:03:55 INFO    operator.actor  | [step 2] START: Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result. | success: Ticket is marked as resolved in the system and a screenshot of the confirmation page is saved.
+11:03:55 DEBUG   operator.actor  | [step 2] task message:
+Objective: Mark the latest ticket from Contoso as resolved.
+Step 2: Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result.
+Tool hint: goto, snapshot, click, submit_record, screenshot
+Success criteria: Ticket is marked as resolved in the system and a screenshot of the confirmation page is saved.
+Known facts: {"customer": "Contoso Ltd", "ticket_number": "TCK-7003", "source_file": "sandbox/data/tickets/contoso-ltd_TCK-7003.pdf"}
+11:03:55 INFO    operator.llm    | [actor.step2 #7] -> request: 2 messages | last=human: Objective: Mark the latest ticket from Contoso as resolved. // Step 2: Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result. // Tool hint: goto, snapshot, click, submit_record, screenshot /...[+251 chars]
+11:03:55 DEBUG   operator.llm    | [actor.step2 #7]    SYSTEM: You are the Actor of an AI operator. You execute exactly ONE step of a plan using tools.
+Rules:
+- You act ONLY through tool calls. Never reply in plain text: every turn must be a tool call.
+- Use at most 8 tool calls. Be economical: goto/click already return a page snapshot.
+- Element ids (e1, e2...) come from the latest snapshot and change after every page load.
+- Do not log in; the session is already authenticated.
+- Never guess values: read them from files or pages. Amounts are plain numbers (e.g. 348.00).
+- Never click a gated submit button; use submit_record. If a tool says BLOCKED or AMBIGUOUS, stop and
+  report status=needs_human with a clear question.
+- If a tool result is an error, adapt (re-read the page, fix the value) rather than repeating the same call.
+- Do ONLY this step. As soon as its success criteria are met, call StepResult immediately; do not start the
+  next step even if you know what it is. Other steps run later with their own budget.
+- If the helpdesk shows a validation error, read the message, correct the field and resubmit; on a server error
+  retry once.
+- FINISH by calling the StepResult tool BY ITSELF, in its own turn, after you have seen the results of your
+  other tool calls. status=done only if the success criteria are met; failed if not (explain in note);
+  needs_human if a human decision is required (set question). Put values discovered in this step in facts as
+  plain strings (customer, refund_number, amount, respond_by, refund_date, source_file, ticket_number as relevant).
+
+Company context:
+=== company.md ===
+---
+description: Company overview, systems and URLs, naming conventions
+---
+# Brightline (sandbox company)
+We are a small company whose support team handles customer refund requests and support tickets.
+
+## Systems
+- Internal helpdesk (mock): http://127.0.0.1:5001
+  - The browser session is already logged in. Never log in; if you land on /login the tools re-authenticate automatically.
+  - Customers: /customers, Refunds: /refunds, New refund: /refunds/new
+  - Tickets: /tickets, ticket detail: /tickets/<id>
+- Source documents are local files under `sandbox/data/`:
+  - `sandbox/data/refunds/`  customer refund request forms (PDF), named `<customer-slug>_<refund-no>.pdf`
+  - `sandbox/data/tickets/`  support ticket PDFs, named `<customer-slug>_<ticket-no>.pdf`
+  - `sandbox/data/emails/`  customer emails, named `<customer-slug>_<refund-no>.txt`; some refund requests arrive only as emails
+    (same fields as the PDF forms: Refund No, Refund Date, Respond-by Date, Refund Amount)
+
+## Conventions
+- Amounts are entered as plain numbers with two decimals, no currency symbol or commas (e.g. 348.00).
+- Dates: the helpdesk requires YYYY-MM-DD even though the form label says MM/DD/YYYY.
+- Always use the customer's canonical name from the customer list.
+- "Latest" means the most recent date printed inside the document, not the file name or file time.
+- "Respond-by date" is the SLA deadline by which the customer must receive an answer about the refund.
+
+=== policies.md ===
+---
+description: Approval thresholds and what the AI may and may not do
+approval_threshold: 500
+allowed_urls: http://127.0.0.1:5001
+allowed_paths: sandbox/data
+---
+# Policies
+- Refunds above the approval threshold (USD 500) need recorded human approval before they are logged. The system blocks the submit until approval is recorded.
+- If the customer name is ambiguous (matches more than one customer), ask the human which one. Never guess.
+- If several refund requests could be "the latest" (same date), ask the human.
+- The AI may only open URLs on the allow-list and read files under the allowed paths.
+- The AI must never log the same refund twice. If the helpdesk reports a duplicate, stop and report it.
+- The AI must not change or delete existing helpdesk records.
+11:03:55 DEBUG   operator.llm    | [actor.step2 #7]    HUMAN: Objective: Mark the latest ticket from Contoso as resolved.
+Step 2: Open the helpdesk tickets list, locate the ticket with the obtained number, open its detail page, submit the resolve record, and capture a screenshot of the result.
+Tool hint: goto, snapshot, click, submit_record, screenshot
+Success criteria: Ticket is marked as resolved in the system and a screenshot of the confirmation page is saved.
+Known facts: {"customer": "Contoso Ltd", "ticket_number": "TCK-7003", "source_file": "sandbox/data/tickets/contoso-ltd_TCK-7003.pdf"}

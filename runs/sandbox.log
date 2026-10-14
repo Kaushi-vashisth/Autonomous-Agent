@@ -1,0 +1,83 @@
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5001
+Press CTRL+C to quit
+127.0.0.1 - - [14/Oct/2026 11:02:20] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:20] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:20] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "GET /customers HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "GET /customers HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:22] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:23] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:41] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:02:41] "GET /api/stats HTTP/1.1" 200 -
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on http://127.0.0.1:5001
+Press CTRL+C to quit
+127.0.0.1 - - [14/Oct/2026 11:03:32] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:32] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:32] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:33] "GET /customers HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:03:33] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:34] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:03:34] "GET /customers HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:34] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:57] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:57] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:59] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:03:59] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:05] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:05] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:08] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:08] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:08] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:08] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "GET /customers HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "GET /customers HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:10] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:04:12] "GET /tickets HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:05:43] "GET /tickets HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:05:46] "GET /tickets/3 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:06:03] "POST /tickets/3/resolve HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:06:03] "GET /tickets/3 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:07:06] "GET /tickets/3 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:07:06] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:07:07] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:07:08] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:03] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:03] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:20] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:20] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /customers HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "POST /login HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:08:23] "GET /customers HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:08:24] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:09:08] "GET /tickets HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:09:18] "GET /tickets/3 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:10:29] "GET /tickets/TCK-7003 HTTP/1.1" 404 -
+127.0.0.1 - - [14/Oct/2026 11:10:53] "GET /tickets HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:11:07] "GET /tickets/3 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:12:13] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:13:07] "GET /tickets HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:13:13] "GET /tickets/2 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:13:38] "POST /tickets/2/resolve HTTP/1.1" 302 -
+127.0.0.1 - - [14/Oct/2026 11:13:38] "GET /tickets/2 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:14:22] "GET /tickets/2 HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:14:22] "GET /api/stats HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:14:23] "GET /login HTTP/1.1" 200 -
+127.0.0.1 - - [14/Oct/2026 11:14:23] "GET /api/stats HTTP/1.1" 200 -
